@@ -1,4 +1,5 @@
 # chiken
+![foto](IMG_1.jpg)
 
 ##На основе Esphome
 
