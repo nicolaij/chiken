@@ -1,7 +1,7 @@
 # Chiken esphome
 ![foto](IMG_1.jpg)
 
-### Контроллер TTGO-T-Display ESP32 c экраном st7789v
+### TTGO T-Display module на базе ESP32 c экраном st7789v
 https://esphome.io/components/display/st7789v.html
 ### 4 реле через I2C pcf8574
 I2C 21,22
