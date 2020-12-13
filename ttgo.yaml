@@ -1,0 +1,391 @@
+esphome:
+  name: ttgo
+  platform: ESP32
+  board: featheresp32
+  on_boot:
+    priority: -10
+    then:
+      - climate.control:
+            id: cli_1
+            mode: AUTO
+            target_temperature_low: 24.0
+            target_temperature_high: 26.0
+      - climate.control:
+            id: cli_2
+            mode: AUTO
+            target_temperature_low: 24.0
+            target_temperature_high: 26.0
+      
+wifi:
+  ssid: !secret WiFi_SSID
+  password: !secret WiFi_password
+  reboot_timeout: 0s
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "chiken"
+    password: "123123123"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+web_server:
+  port: 80
+  
+# Enable Home Assistant API
+api:
+  password: "some_api_password"
+
+ota:
+  password: "some_ota_password"
+
+color:
+  - id: my_red
+    red: 100%
+    green: 0%
+    blue: 0%
+  - id: my_yellow
+    red: 100%
+    green: 100%
+    blue: 0%
+  - id: my_gb
+    red: 0%
+    green: 100%
+    blue: 100%
+  - id: my_green
+    red: 0%
+    green: 100%
+    blue: 0%
+  - id: my_blue
+    red: 0%
+    green: 0%
+    blue: 100%
+  - id: my_gray
+    red: 50%
+    green: 50%
+    blue: 50%
+  - id: my_white
+    red: 100%
+    green: 100%
+    blue: 100%
+  - id: my_black
+    red: 0%
+    green: 0%
+    blue: 0%
+
+font:
+  - file: "fonts/BebasNeue-Regular.ttf"
+    id: bebas_48
+    size: 48
+  - file: "fonts/BebasNeue-Regular.ttf"
+    id: bebas_24
+    size: 24
+  - file: "fonts/BebasNeue-Regular.ttf"
+    id: bebas_36
+    size: 36
+  - file: "fonts/tahomabd.ttf"
+    id: tahoma_clock
+    size: 80
+  - file: "fonts/tahomabd.ttf"
+    id: tahoma_16
+    size: 16
+
+text_sensor:
+  - platform: template
+    name: "Current time"
+    lambda: |-
+      char str[30];
+      time_t currTime = id(sntp_time).now().timestamp;
+      strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&currTime));
+      return { str };
+    update_interval: 60s
+
+binary_sensor:
+  - platform: status
+    name: "Node Status"
+    id: system_status
+  - platform: gpio
+    pin:
+      number: GPIO0
+      inverted: true
+    name: "T-Display Button Input 0"
+    id: tdisplay_button_input_0
+  - platform: gpio
+    pin:
+      number: GPIO35
+      inverted: true
+    name: "T-Display Button Input 1"
+    id: tdisplay_button_input_1
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: True
+  id: bus_a
+  frequency: 100kHz
+
+pcf8574:
+  - id: 'pcf8574_hub'
+    address: 0x20
+    pcf8575: False
+  
+sensor:
+  - platform: dht
+    model: AM2302
+    pin: 15
+    temperature:
+      name: "Temperature 1"
+      id: dht_t1
+    humidity:
+      name: "Humidity 1"
+      id: dht_h1
+    update_interval: 60s
+  - platform: dht
+    model: AM2302
+    pin: 13
+    temperature:
+      name: "Temperature 2"
+      id: dht_t2
+    humidity:
+      name: "Humidity 2"
+      id: dht_h2
+    update_interval: 60s
+    
+  # Uptime sensor.
+  - platform: uptime
+    name: Uptime
+
+  # WiFi Signal sensor.
+  - platform: wifi_signal
+    name: WiFi Signal
+    update_interval: 60s
+    
+# We can still control the backlight independently
+switch:
+  - platform: gpio
+    pin: GPIO4
+    name: "Backlight"
+    id: backlight
+  - platform: gpio
+    pin: GPIO25
+    name: "Enable Cover"
+    id: enable_cover_switch
+  - platform: gpio
+    pin: GPIO27
+    name: "Open Cover"
+    id: open_cover_switch
+  - platform: gpio
+    pin: GPIO26
+    name: "Close Cover"
+    id: close_cover_switch
+  - platform: gpio
+    name: "Relay 1"
+    id: relay1
+    pin:
+      pcf8574: pcf8574_hub
+      number: 0
+      mode: OUTPUT
+      inverted: True
+  - platform: gpio
+    name: "Relay 2"
+    id: relay2
+    pin:
+      pcf8574: pcf8574_hub
+      number: 1
+      mode: OUTPUT
+      inverted: True
+  - platform: gpio
+    name: "Relay 3"
+    id: relay3
+    pin:
+      pcf8574: pcf8574_hub
+      number: 2
+      mode: OUTPUT
+      inverted: True
+  - platform: gpio
+    name: "Relay 4"
+    id: relay4
+    pin:
+      pcf8574: pcf8574_hub
+      number: 3
+      mode: OUTPUT
+      inverted: True
+
+globals:
+  - id: set_sntp_time
+    type: int
+    restore_value: no
+    initial_value: '-1'
+
+time:
+  - platform: homeassistant
+    id: esptime
+  - platform: sntp
+    id: sntp_time
+  - platform: ds1307
+    id: rtc_time
+    on_time:    
+      #обновляем RTC
+      - seconds: 0
+        minutes: /5
+        then:
+          if:
+            condition:
+              and:
+                - wifi.connected:
+                - lambda: 'return id(set_sntp_time) < 0;'
+            then:
+              - lambda: 'id(rtc_time).write_data();'
+              - globals.set:
+                  id: set_sntp_time
+                  value: '0'
+      #обновлениe встроенных часов из RTC если нет WiFi
+      - seconds: 0
+        minutes: 10
+        hours: 0
+        then:
+          if:
+            condition:
+              not:
+                wifi.connected:
+            then:
+              - lambda: 'id(rtc_time).read_data();'
+      #Свет включаем
+      - seconds: 0
+        minutes: 0
+        hours: 7,18
+        then:
+          - switch.turn_on: relay3
+      #Свет выключаем
+      - seconds: 0
+        minutes: 0
+        hours: 9,22
+        then:
+          - switch.turn_off: relay3
+      #Кормежка
+      - seconds: 0
+        minutes: 0
+        hours: 8,13,18
+        then:
+          - switch.turn_on: relay4
+          - delay: 20s
+          - switch.turn_off: relay4
+
+output:
+  - platform: ledc
+    pin: GPIO33
+    id: pwm_cover_switch
+    
+cover:
+  - platform: time_based
+    name: "Door"
+    id: doorcover
+    open_action:
+      - switch.turn_on: enable_cover_switch
+      - output.set_level:
+            id: pwm_cover_switch
+            level: "90%"
+      - switch.turn_on: open_cover_switch
+    open_duration: 15s
+
+    close_action:
+      - switch.turn_on: enable_cover_switch
+      - output.set_level:
+            id: pwm_cover_switch
+            level: "90%"
+      - switch.turn_on: close_cover_switch
+    close_duration: 15s
+
+    stop_action:
+      - switch.turn_off: open_cover_switch
+      - switch.turn_off: close_cover_switch    
+      
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO19
+
+display:
+  - platform: st7789v
+    backlight_pin: GPIO4
+    cs_pin: GPIO5
+    dc_pin: GPIO16
+    reset_pin: GPIO23
+    rotation: 90
+    lambda: |-
+        it.rectangle(0,  0, it.get_width(), it.get_height(), id(my_blue));
+        it.rectangle(0, 38, it.get_width(), it.get_height(), id(my_blue));
+        it.line(it.get_width() /2 , 0, it.get_width() / 2 , 38, id(my_blue));
+        it.line(0 , it.get_height() - 22, it.get_width() , it.get_height() - 22, id(my_blue));
+
+        it.printf(57, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", (int)(id(dht_t1).state + 0.5f));
+        it.printf(117, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", (int)(id(dht_h1).state + 0.5f));
+
+        it.printf(177, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", (int)(id(dht_t2).state + 0.5f));
+        it.printf(237, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", (int)(id(dht_h2).state + 0.5f));
+
+        it.strftime((240 / 2), 72, id(tahoma_clock), id(my_white), TextAlign::CENTER, "%H:%M", id(esptime).now());
+           
+          if (id(relay1).state)
+            it.filled_rectangle(1, it.get_height() - 21, 28, 20, id(my_red));
+          else
+            it.filled_rectangle(1, it.get_height() - 21, 28, 20, id(my_gray));
+            
+          it.print(1 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "1");
+
+          if (id(relay2).state)
+            it.filled_rectangle(31, it.get_height() - 21, 28, 20, id(my_red));
+          else
+            it.filled_rectangle(31, it.get_height() - 21, 28, 20, id(my_gray));
+          
+          it.print(31 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "2");
+          
+          if (id(relay3).state)
+            it.filled_rectangle(61, it.get_height() - 21, 28, 20, id(my_red));
+          else
+            it.filled_rectangle(61, it.get_height() - 21, 28, 20, id(my_gray));
+          
+          it.print(61 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "3");
+          
+          if (id(relay4).state)
+            it.filled_rectangle(91, it.get_height() - 21, 28, 20, id(my_red));
+          else
+            it.filled_rectangle(91, it.get_height() - 21, 28, 20, id(my_gray));
+            
+          it.print(91 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "4");
+
+          if (id(doorcover).position == 1.0f)
+          {
+            it.filled_rectangle(it.get_width() - 81, it.get_height() - 21, 80, 20, id(my_green));
+            it.print(it.get_width() - 40, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "OPEN");
+          }
+          else
+          {
+            it.filled_rectangle(it.get_width() - 81, it.get_height() - 21, 80, 20, id(my_gray));
+            it.print(it.get_width() - 40, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "CLOSE");
+          };
+        
+climate:
+  - platform: bang_bang 
+    name: "Climate Controller 1"
+    id: cli_1
+    sensor: dht_t1
+    default_target_temperature_low: 24 °C
+    default_target_temperature_high: 26 °C
+
+    heat_action:
+      - switch.turn_on: relay1
+    idle_action:
+      - switch.turn_off: relay1
+
+  - platform: bang_bang 
+    name: "Climate Controller 2"
+    sensor: dht_t2
+    id: cli_2
+    default_target_temperature_low: 24 °C
+    default_target_temperature_high: 26 °C
+
+    heat_action:
+      - switch.turn_on: relay2
+    idle_action:
+      - switch.turn_off: relay2
