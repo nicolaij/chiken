@@ -1,7 +1,5 @@
-# chiken
+# Chiken esphome
 ![foto](IMG_1.jpg)
-
-##На основе Esphome
 
 ### Контроллер TTGO-T-Display ESP32 c экраном st7789v
 https://esphome.io/components/display/st7789v.html
