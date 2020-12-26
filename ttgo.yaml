@@ -100,6 +100,15 @@ text_sensor:
       strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&currTime));
       return { str };
     update_interval: 60s
+  - platform: wifi_info
+    ip_address:
+      name: ESP IP Address
+    ssid:
+      name: ESP Connected SSID
+    bssid:
+      name: ESP Connected BSSID
+    mac_address:
+      name: ESP Mac Wifi Address
 
 binary_sensor:
   - platform: status
@@ -109,14 +118,50 @@ binary_sensor:
     pin:
       number: GPIO0
       inverted: true
+      mode: INPUT_PULLUP
     name: "T-Display Button Input 0"
     id: tdisplay_button_input_0
+    on_press:
+        then:
+        - cover.close: doorcover
   - platform: gpio
     pin:
       number: GPIO35
       inverted: true
+      mode: INPUT_PULLUP
     name: "T-Display Button Input 1"
     id: tdisplay_button_input_1
+    on_press:
+        then:
+        - cover.open: doorcover
+  - platform: gpio
+    pin:
+      number: GPIO38
+      inverted: true
+    name: "Button Door Open"
+    id: button_input_38
+    on_press:
+        if:
+          condition:
+            switch.is_on: close_cover_switch
+          then:
+            - cover.stop: doorcover
+          else:
+            - cover.open: doorcover
+  - platform: gpio
+    pin:
+      number: GPIO39
+      inverted: true
+    name: "Button Door Close"
+    id: button_input_39
+    on_press:
+        if:
+          condition:
+            switch.is_on: open_cover_switch
+          then:
+            - cover.stop: doorcover
+          else:
+            - cover.close: doorcover
 
 i2c:
   sda: 21
@@ -285,21 +330,22 @@ cover:
       - switch.turn_on: enable_cover_switch
       - output.set_level:
             id: pwm_cover_switch
-            level: "90%"
+            level: "50%"
       - switch.turn_on: open_cover_switch
-    open_duration: 15s
+    open_duration: 5s
 
     close_action:
       - switch.turn_on: enable_cover_switch
       - output.set_level:
             id: pwm_cover_switch
-            level: "90%"
+            level: "50%"
       - switch.turn_on: close_cover_switch
-    close_duration: 15s
+    close_duration: 5s
 
     stop_action:
       - switch.turn_off: open_cover_switch
       - switch.turn_off: close_cover_switch    
+      - switch.turn_off: enable_cover_switch
       
 spi:
   clk_pin: GPIO18
