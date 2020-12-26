@@ -9,6 +9,7 @@ I2C 21,22
 I2C 21,22
 ### Управление дверью двигателем постоянного тока через VNH3SP30
 Enable 25, ENA 26, ENB 27, PWM 33 (platform: ledc)
+Button OPEN 38, Button CLOSE 39
 ### AM2302 №1
 Pin 15. Температура заведена на climate, platform: bang_bang, выход Реле 1
 ### AM2302 №2
