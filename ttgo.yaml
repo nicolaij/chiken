@@ -2,6 +2,8 @@ esphome:
   name: ttgo
   platform: ESP32
   board: featheresp32
+  platformio_options:
+    upload_speed: 921600
   on_boot:
     priority: -10
     then:
@@ -17,8 +19,8 @@ esphome:
             target_temperature_high: 26.0
       
 wifi:
-  ssid: !secret WiFi_SSID
-  password: !secret WiFi_password
+  ssid: "WiFi_SSID"
+  password: "WiFi_password"
   reboot_timeout: 0s
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -36,6 +38,7 @@ web_server:
 # Enable Home Assistant API
 api:
   password: "some_api_password"
+  reboot_timeout: 0s
 
 ota:
   password: "some_ota_password"
@@ -269,8 +272,7 @@ time:
   - platform: sntp
     id: sntp_time
   - platform: ds1307
-    id: rtc_time
-    on_time:    
+    on_time:
       #обновляем RTC
       - seconds: 0
         minutes: /5
@@ -281,21 +283,10 @@ time:
                 - wifi.connected:
                 - lambda: 'return id(set_sntp_time) < 0;'
             then:
-              - lambda: 'id(rtc_time).write_data();'
+              - ds1307.write_time
               - globals.set:
                   id: set_sntp_time
                   value: '0'
-      #обновлениe встроенных часов из RTC если нет WiFi
-      - seconds: 0
-        minutes: 10
-        hours: 0
-        then:
-          if:
-            condition:
-              not:
-                wifi.connected:
-            then:
-              - lambda: 'id(rtc_time).read_data();'
       #Свет включаем
       - seconds: 0
         minutes: 0
