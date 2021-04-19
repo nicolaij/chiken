@@ -4,7 +4,11 @@ esphome:
   board: featheresp32
   platformio_options:
     upload_speed: 921600
-      
+  on_boot:
+    then: 
+      - ds1307.read_time
+      - script.execute: set_climate
+
 wifi:
   ssid: "WiFi_SSID"
   password: "WiFi_password"
@@ -18,6 +22,7 @@ captive_portal:
 
 # Enable logging
 logger:
+  level: DEBUG
 
 web_server:
   port: 80
@@ -113,14 +118,26 @@ script:
       - delay: !lambda "return id(time_korm)*1000;"
       - switch.turn_off: relay4
       - component.update: my_display
-
+  - id: set_climate
+    then:
+      lambda: |-
+          auto call1 = id(cli_1).make_call();
+          call1.set_mode("AUTO");
+          call1.set_target_temperature_low(id(t_low_climate));
+          call1.set_target_temperature_high(id(t_high_climate));
+          call1.perform();
+          auto call2 = id(cli_2).make_call();
+          call2.set_mode("AUTO");
+          call2.set_target_temperature_low(id(t_low_climate));
+          call2.set_target_temperature_high(id(t_high_climate));
+          call2.perform();
 
 text_sensor:
   - platform: template
     name: "Current time"
     lambda: |-
       char str[30];
-      time_t currTime = id(sntp_time).now().timestamp;
+      time_t currTime = id(rtc_time).now().timestamp;
       strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&currTime));
       return { str };
     update_interval: 60s
@@ -140,14 +157,23 @@ binary_sensor:
     id: system_status
   - platform: gpio
     pin:
+      number: GPIO2
+      inverted: true
+      mode: INPUT_PULLUP
+    id: level
+    on_state:
+      then:
+        - component.update: my_display            
+  - platform: gpio
+    pin:
       number: GPIO0
       inverted: true
       mode: INPUT_PULLUP
     name: "T-Display Button Input 0"
     id: tdisplay_button_input_0
     on_press:
-        then:
-        - cover.close: doorcover
+      then:
+        - cover.close: doorcover 
   - platform: gpio
     pin:
       number: GPIO35
@@ -156,7 +182,7 @@ binary_sensor:
     name: "T-Display Button Input 1"
     id: tdisplay_button_input_1
     on_press:
-        then:
+      then:
         - cover.open: doorcover
   - platform: gpio
     pin:
@@ -194,7 +220,6 @@ binary_sensor:
     name: "Encoder button"
     on_click:
       min_length: 50ms
-      max_length: 350ms
       then:
         - lambda: |-
             id(menu_pos) = id(menu_pos) + 1;
@@ -276,12 +301,10 @@ sensor:
   - platform: rotary_encoder
     name: "Rotary Encoder 1"
     id: rotary_encoder1
-    pin_a: GPIO36
+    pin_a: GPIO17
     pin_b: GPIO37
     min_value: 0
     max_value: 99
-    filters:
-      - debounce: 100ms
     on_value:
       then:
         - lambda: |-
@@ -349,6 +372,7 @@ switch:
     id: close_cover_switch
   - platform: gpio
     name: "Relay 1"
+    restore_mode: ALWAYS_OFF
     id: relay1
     pin:
       pcf8574: pcf8574_hub
@@ -358,6 +382,7 @@ switch:
   - platform: gpio
     name: "Relay 2"
     id: relay2
+    restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub
       number: 1
@@ -366,6 +391,7 @@ switch:
   - platform: gpio
     name: "Relay 3"
     id: relay3
+    restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub
       number: 2
@@ -374,6 +400,7 @@ switch:
   - platform: gpio
     name: "Relay 4"
     id: relay4
+    restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub
       number: 3
@@ -381,13 +408,14 @@ switch:
       inverted: True
 
 time:
-  - platform: homeassistant
-    id: esptime
   - platform: sntp
     id: sntp_time
-  - platform: ds1307
+    timezone: "Europe/Minsk"
+    on_time_sync:
+      then:
+        - logger.log: "Synchronized system clock"
     on_time:
-      #обновлѝем RTC
+      #обновляем RTC
       - seconds: 0
         minutes: /5
         then:
@@ -397,30 +425,39 @@ time:
                 - wifi.connected:
                 - lambda: 'return id(set_sntp_time) < 0;'
             then:
-              - ds1307.write_time
+              - logger.log: "Synchronized rtc"              
+              - lambda: |-
+                  auto time = id(sntp_time).now();
+                  if(time.is_valid()) {
+                    id(rtc_time).write_time();
+                  }
               - globals.set:
                   id: set_sntp_time
-                  value: '0'
+                  value: '0'      
+
+  - platform: ds1307
+    id: rtc_time
+    update_interval: never
+    timezone: "Europe/Minsk"
+    on_time:
       #Свет включаем
       - seconds: 0
         minutes: 0
         hours: 7,18
         then:
           - switch.turn_on: relay3
-          - component.update: my_display  
       #Свет выключаем
       - seconds: 0
         minutes: 0
         hours: 9,22
         then:
           - switch.turn_off: relay3
-          - component.update: my_display  
       #Кормежка
       - seconds: 0
         minutes: 0
         hours: 8,13,18
         then:
-          - script.execute: korm          
+          - script.execute: korm
 
 output:
   - platform: ledc
@@ -481,7 +518,7 @@ display:
           it.printf(177, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", (int)(id(dht_t2).state + 0.5f));
           it.printf(237, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", (int)(id(dht_h2).state + 0.5f));
   
-          it.strftime((240 / 2), 72, id(tahoma_clock), id(my_white), TextAlign::CENTER, "%H:%M", id(esptime).now());
+          it.strftime((240 / 2), 72, id(tahoma_clock), id(my_white), TextAlign::CENTER, "%H:%M", id(rtc_time).now());
             
           if (id(relay1).state)
             it.filled_rectangle(1, it.get_height() - 21, 28, 20, id(my_red));
@@ -510,6 +547,13 @@ display:
             it.filled_rectangle(91, it.get_height() - 21, 28, 20, id(my_gray));
             
           it.print(91 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "4");
+
+          if (id(level).state)
+            it.filled_rectangle(121, it.get_height() - 21, 28, 20, id(my_blue));
+          else
+            it.filled_rectangle(121, it.get_height() - 21, 28, 20, id(my_gray));
+            
+          it.print(121 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "L");
 
           if (id(doorcover).position == 1.0f)
           {
