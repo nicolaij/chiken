@@ -3,22 +3,21 @@ esphome:
   platform: ESP32
   board: featheresp32
   platformio_options:
-    upload_speed: 921600
+    board_build.f_cpu: 80000000L
   on_boot:
-    then: 
+    then:
       - ds1307.read_time
-      - script.execute: set_climate
 
 wifi:
-  ssid: "WiFi_SSID"
-  password: "WiFi_password"
-  reboot_timeout: 0s
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
+#  networks:
+#    - ssid: "wifi"
+#      password: "123123123"
+
   ap:
     ssid: "chiken"
     password: "123123123"
 
-captive_portal:
+#captive_portal:
 
 # Enable logging
 logger:
@@ -26,37 +25,161 @@ logger:
 
 web_server:
   port: 80
-  
-# Enable Home Assistant API
+  #include_internal: false
+  ota: false
+  #local: true
+  version: 2
+  js_include: "./www.js"
+  js_url: ""
+  #version: 1
+  #css_include: "webserver-v1.css"
+  #css_url: ""
+  #js_include: "webserver-v1.js"
+  #js_url: ""
+
 api:
-  password: "some_api_password"
   reboot_timeout: 0s
 
 ota:
-  password: "some_ota_password"
 
 globals:
   - id: set_sntp_time
     type: int
     restore_value: no
-    initial_value: '-1'
+    initial_value: "-1"
   - id: menu_pos
     type: int
     restore_value: no
-    initial_value: '0'
+    initial_value: "0"
   - id: t_low_climate
     type: float
     restore_value: yes
-    initial_value: '20'
+    initial_value: "20"
   - id: t_high_climate
     type: float
     restore_value: yes
-    initial_value: '23'
-  - id: time_korm
-    type: int
-    restore_value: yes
-    initial_value: '20'
+    initial_value: "23"
 
+number:
+  - platform: template
+    id: korm_time
+    name: Корм. Подача.
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    restore_value: true
+    initial_value: 20
+    unit_of_measurement: "сек."
+    update_interval: never
+
+  - platform: template
+    id: korm_hour1
+    name: Корм 1.
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 8
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: korm_hour2
+    name: Корм 2.
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 13
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: korm_hour3
+    name: Корм 3.
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 18
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: ligth_on_hour1
+    name: "Свет 1  ON"
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 7
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: ligth_on_hour2
+    name: "Свет 2  ON"
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 18
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: ligth_off_hour1
+    name: "Свет 1 OFF"
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 8
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: ligth_off_hour2
+    name: "Свет 2 OFF"
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 20
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: door_open_time
+    name: "Дверь  ON"
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 7
+    update_interval: never
+    unit_of_measurement: "час."
+
+  - platform: template
+    id: door_close_time
+    name: "Дверь OFF"
+    optimistic: true
+    min_value: 0
+    max_value: 23
+    step: 0.1
+    restore_value: true
+    initial_value: 20
+    update_interval: never
+    unit_of_measurement: "час."
 
 color:
   - id: my_red
@@ -109,52 +232,36 @@ font:
     id: tahoma_16
     size: 16
 
-
 script:
   - id: korm
     then:
       - switch.turn_on: relay4
-      - component.update: my_display  
-      - delay: !lambda "return id(time_korm)*1000;"
+      - component.update: my_display
+      - delay: !lambda "return (int)id(korm_time).state * 1000;"
       - switch.turn_off: relay4
       - component.update: my_display
-  - id: set_climate
-    then:
-      lambda: |-
-          auto call1 = id(cli_1).make_call();
-          call1.set_mode("AUTO");
-          call1.set_target_temperature_low(id(t_low_climate));
-          call1.set_target_temperature_high(id(t_high_climate));
-          call1.perform();
-          auto call2 = id(cli_2).make_call();
-          call2.set_mode("AUTO");
-          call2.set_target_temperature_low(id(t_low_climate));
-          call2.set_target_temperature_high(id(t_high_climate));
-          call2.perform();
 
 text_sensor:
   - platform: template
     name: "Current time"
     lambda: |-
-      char str[30];
+      static char str[30];
       time_t currTime = id(rtc_time).now().timestamp;
       strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&currTime));
       return { str };
-    update_interval: 60s
+
   - platform: wifi_info
     ip_address:
       name: ESP IP Address
-    ssid:
-      name: ESP Connected SSID
-    bssid:
-      name: ESP Connected BSSID
-    mac_address:
-      name: ESP Mac Wifi Address
+
+  - platform: sun
+    name: Sun Next Sunrise
+    type: sunrise
+  - platform: sun
+    name: Sun Next Sunset
+    type: sunset      
 
 binary_sensor:
-  - platform: status
-    name: "Node Status"
-    id: system_status
   - platform: gpio
     pin:
       number: GPIO2
@@ -163,7 +270,7 @@ binary_sensor:
     id: level
     on_state:
       then:
-        - component.update: my_display            
+        - component.update: my_display
   - platform: gpio
     pin:
       number: GPIO0
@@ -173,12 +280,12 @@ binary_sensor:
     id: tdisplay_button_input_0
     on_press:
       then:
-        - cover.close: doorcover 
+        - cover.close: doorcover
   - platform: gpio
     pin:
       number: GPIO35
       inverted: true
-      mode: INPUT_PULLUP
+      #mode: INPUT_PULLUP
     name: "T-Display Button Input 1"
     id: tdisplay_button_input_1
     on_press:
@@ -191,13 +298,13 @@ binary_sensor:
     name: "Button Door Open"
     id: button_input_32
     on_press:
-        if:
-          condition:
-            switch.is_on: close_cover_switch
-          then:
-            - cover.stop: doorcover
-          else:
-            - cover.open: doorcover
+      if:
+        condition:
+          switch.is_on: close_cover_switch
+        then:
+          - cover.stop: doorcover
+        else:
+          - cover.open: doorcover
   - platform: gpio
     pin:
       number: GPIO39
@@ -205,18 +312,17 @@ binary_sensor:
     name: "Button Door Close"
     id: button_input_39
     on_press:
-        if:
-          condition:
-            switch.is_on: open_cover_switch
-          then:
-            - cover.stop: doorcover
-          else:
-            - cover.close: doorcover
+      if:
+        condition:
+          switch.is_on: open_cover_switch
+        then:
+          - cover.stop: doorcover
+        else:
+          - cover.close: doorcover
   - platform: gpio
     pin:
       number: GPIO38
       inverted: true
-      mode: INPUT_PULLUP
     name: "Encoder button"
     on_click:
       min_length: 50ms
@@ -226,14 +332,14 @@ binary_sensor:
             if (id(menu_pos) > 6) id(menu_pos) = 0;
             switch(id(menu_pos))
             {
-                case 1:           
-                    id(rotary_encoder1).set_value(id(t_low_climate));                    
+                case 1:
+                    id(rotary_encoder1).set_value(id(t_low_climate));
                   break;
                 case 2:
-                    id(rotary_encoder1).set_value(id(t_high_climate));                    
+                    id(rotary_encoder1).set_value(id(t_high_climate));
                   break;
                 case 3:
-                    id(rotary_encoder1).set_value(id(time_korm));                    
+                    id(rotary_encoder1).set_value(id(korm_time).state);
                   break;
                 case 4: /*KORM ON*/
                 case 5: /*DOOR ON*/
@@ -253,7 +359,7 @@ binary_sensor:
                     call2.perform();
                   break;
             };
-        - component.update: my_display  
+        - component.update: my_display
 
 i2c:
   sda: 21
@@ -263,10 +369,10 @@ i2c:
   frequency: 100kHz
 
 pcf8574:
-  - id: 'pcf8574_hub'
+  - id: "pcf8574_hub"
     address: 0x20
     pcf8575: False
-  
+
 sensor:
   - platform: dht
     model: AM2302
@@ -288,7 +394,7 @@ sensor:
       name: "Humidity 2"
       id: dht_h2
     update_interval: 60s
-    
+
   # Uptime sensor.
   - platform: uptime
     name: Uptime
@@ -297,7 +403,7 @@ sensor:
   - platform: wifi_signal
     name: WiFi Signal
     update_interval: 60s
-    
+
   - platform: rotary_encoder
     name: "Rotary Encoder 1"
     id: rotary_encoder1
@@ -317,11 +423,16 @@ sensor:
                     id(t_high_climate) = id(rotary_encoder1).state;
                   break;
                 case 3:
-                    id(time_korm) = id(rotary_encoder1).state;
+                {
+                  auto call = id(korm_time).make_call();
+                  call.set_value(id(rotary_encoder1).state);
+                  call.perform();
+                }
                   break;
                 case 4:
                     if (id(rotary_encoder1).state != 1)
                     {
+                      id(korm).execute();
                       if (id(relay4).state) 
                         id(relay4).turn_off();
                       else
@@ -354,21 +465,21 @@ sensor:
 
 # We can still control the backlight independently
 switch:
-  - platform: gpio
-    pin: GPIO4
-    name: "Backlight"
-    id: backlight
+  #  - platform: gpio
+  #    pin: GPIO4
+  #    name: "Экран"
+  #    id: backlight
   - platform: gpio
     pin: GPIO25
-    name: "Enable Cover"
+    name: "Door. Enable"
     id: enable_cover_switch
   - platform: gpio
     pin: GPIO27
-    name: "Open Cover"
+    name: "Door. Open"
     id: open_cover_switch
   - platform: gpio
     pin: GPIO26
-    name: "Close Cover"
+    name: "Door. Close"
     id: close_cover_switch
   - platform: gpio
     name: "Relay 1"
@@ -413,19 +524,16 @@ time:
     timezone: "Europe/Minsk"
     on_time_sync:
       then:
-        - logger.log: "Synchronized system clock"
-    on_time:
-      #обновляем RTC
-      - seconds: 0
-        minutes: /5
-        then:
-          if:
+        - logger.log:
+            "Synchronized system clock"
+            # ... and update the RTC when the synchronization was successful
+        - if:
             condition:
               and:
                 - wifi.connected:
-                - lambda: 'return id(set_sntp_time) < 0;'
+                - lambda: "return id(set_sntp_time) < 0;"
             then:
-              - logger.log: "Synchronized rtc"              
+              - logger.log: "Synchronized rtc"
               - lambda: |-
                   auto time = id(sntp_time).now();
                   if(time.is_valid()) {
@@ -433,71 +541,88 @@ time:
                   }
               - globals.set:
                   id: set_sntp_time
-                  value: '0'      
+                  value: "0"
 
   - platform: ds1307
     id: rtc_time
     update_interval: never
     timezone: "Europe/Minsk"
     on_time:
-      #Свет включаем
       - seconds: 0
-        minutes: 0
-        hours: 7,18
+        minutes: /6
         then:
-          - switch.turn_on: relay3
-      #Свет выключаем
-      - seconds: 0
-        minutes: 0
-        hours: 9,22
-        then:
-          - switch.turn_off: relay3
-      #Кормежка
-      - seconds: 0
-        minutes: 0
-        hours: 8,13,18
-        then:
-          - script.execute: korm
+          lambda: |-
+            int hour = id(sntp_time).now().hour;
+            int minute = id(sntp_time).now().minute;
+            float t = (float)hour + (float)minute / 6.0 / 10.0;
+            /*Кормежка*/
+            if (id(korm_hour1).state == t || id(korm_hour2).state == t || id(korm_hour3).state == t)
+            {
+              id(korm).execute();
+            }
+            /*Освещение*/
+            if (id(ligth_on_hour1).state == t || id(ligth_on_hour2).state == t)
+            {
+              id(relay3).turn_on();
+            }
+            if (id(ligth_off_hour1).state == t || id(ligth_off_hour2).state == t)
+            {
+              id(relay3).turn_off();
+            }
+            /*Дверь*/
+            if (id(door_open_time).state == t)
+            {
+              auto call = id(doorcover).make_call();
+              call.set_command_open();
+              call.perform();
+            }
+            if (id(door_close_time).state == t)
+            {
+              auto call = id(doorcover).make_call();
+              call.set_command_close();
+              call.perform();
+            }
 
 output:
   - platform: ledc
     pin: GPIO33
     id: pwm_cover_switch
-    
+
 cover:
   - platform: time_based
-    name: "Door"
+    name: "Дверь"
     id: doorcover
     open_action:
       - switch.turn_on: enable_cover_switch
       - output.set_level:
-            id: pwm_cover_switch
-            level: "50%"
+          id: pwm_cover_switch
+          level: "50%"
       - switch.turn_on: open_cover_switch
-      - component.update: my_display  
+      - component.update: my_display
     open_duration: 5s
 
     close_action:
       - switch.turn_on: enable_cover_switch
       - output.set_level:
-            id: pwm_cover_switch
-            level: "50%"
+          id: pwm_cover_switch
+          level: "50%"
       - switch.turn_on: close_cover_switch
-      - component.update: my_display  
+      - component.update: my_display
     close_duration: 5s
 
     stop_action:
       - switch.turn_off: open_cover_switch
-      - switch.turn_off: close_cover_switch    
+      - switch.turn_off: close_cover_switch
       - switch.turn_off: enable_cover_switch
-      - component.update: my_display  
-      
+      - component.update: my_display
+
 spi:
   clk_pin: GPIO18
   mosi_pin: GPIO19
 
 display:
   - platform: st7789v
+    model: TTGO TDisplay 135x240
     backlight_pin: GPIO4
     cs_pin: GPIO5
     dc_pin: GPIO16
@@ -505,112 +630,95 @@ display:
     rotation: 90
     id: my_display
     lambda: |-
-        if (id(menu_pos) == 0)
-        {
-          it.rectangle(0,  0, it.get_width(), it.get_height(), id(my_blue));
-          it.rectangle(0, 38, it.get_width(), it.get_height(), id(my_blue));
-          it.line(it.get_width() /2 , 0, it.get_width() / 2 , 38, id(my_blue));
-          it.line(0 , it.get_height() - 22, it.get_width() , it.get_height() - 22, id(my_blue));
-  
-          it.printf(57, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", (int)(id(dht_t1).state + 0.5f));
-          it.printf(117, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", (int)(id(dht_h1).state + 0.5f));
-  
-          it.printf(177, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", (int)(id(dht_t2).state + 0.5f));
-          it.printf(237, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", (int)(id(dht_h2).state + 0.5f));
-  
-          it.strftime((240 / 2), 72, id(tahoma_clock), id(my_white), TextAlign::CENTER, "%H:%M", id(rtc_time).now());
-            
-          if (id(relay1).state)
-            it.filled_rectangle(1, it.get_height() - 21, 28, 20, id(my_red));
-          else
-            it.filled_rectangle(1, it.get_height() - 21, 28, 20, id(my_gray));
-            
-          it.print(1 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "1");
+      if (id(menu_pos) == 0)
+      {
+        it.rectangle(0,  0, it.get_width(), it.get_height(), id(my_blue));
+        it.rectangle(0, 38, it.get_width(), it.get_height(), id(my_blue));
+        it.line(it.get_width() /2 , 0, it.get_width() / 2 , 38, id(my_blue));
+        it.line(0 , it.get_height() - 22, it.get_width() , it.get_height() - 22, id(my_blue));
 
-          if (id(relay2).state)
-            it.filled_rectangle(31, it.get_height() - 21, 28, 20, id(my_red));
-          else
-            it.filled_rectangle(31, it.get_height() - 21, 28, 20, id(my_gray));
-          
-          it.print(31 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "2");
-          
-          if (id(relay3).state)
-            it.filled_rectangle(61, it.get_height() - 21, 28, 20, id(my_red));
-          else
-            it.filled_rectangle(61, it.get_height() - 21, 28, 20, id(my_gray));
-          
-          it.print(61 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "3");
-          
-          if (id(relay4).state)
-            it.filled_rectangle(91, it.get_height() - 21, 28, 20, id(my_red));
-          else
-            it.filled_rectangle(91, it.get_height() - 21, 28, 20, id(my_gray));
-            
-          it.print(91 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "4");
+        it.printf(57, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", isnan(id(dht_t1).state) ? 0 : (int)(id(dht_t1).state + 0.5f));
+        it.printf(117, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", isnan(id(dht_h1).state) ? 0 : (int)(id(dht_h1).state + 0.5f));
 
-          if (id(level).state)
-            it.filled_rectangle(121, it.get_height() - 21, 28, 20, id(my_blue));
-          else
-            it.filled_rectangle(121, it.get_height() - 21, 28, 20, id(my_gray));
-            
-          it.print(121 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "L");
+        it.printf(177, 5, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "%d°C", isnan(id(dht_t2).state) ? 0 : (int)(id(dht_t2).state + 0.5f));
+        it.printf(237, 5, id(bebas_36), id(my_gb), TextAlign::TOP_RIGHT, "%d%%", isnan(id(dht_h2).state) ? 0 : (int)(id(dht_h2).state + 0.5f));
 
-          if (id(doorcover).position == 1.0f)
-          {
-            it.filled_rectangle(it.get_width() - 81, it.get_height() - 21, 80, 20, id(my_green));
-            it.print(it.get_width() - 40, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "OPEN");
-          }
-          else
-          {
-            it.filled_rectangle(it.get_width() - 81, it.get_height() - 21, 80, 20, id(my_gray));
-            it.print(it.get_width() - 40, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "CLOSE");
-          };
-        }else /* ВЫВОДИМ МЕНЮ*/
-        { const int ys = 34;
-          it.printf(5, 2, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "Climate:  %2d - %2d", (int)id(t_low_climate), (int)id(t_high_climate));
-          it.printf(5, 2 + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "KORM:  %2d s", (int)id(time_korm));
-          if (id(relay4).state)
-            it.printf(230, 2 + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "  ON");
-          else
-            it.printf(230, 2 + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "OFF");
-
-          it.printf(5, 2 + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "DOOR:");
-          if (id(doorcover).position == 1.0f)
-            it.printf(230, 2 + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "CLOSE");
-          else
-            it.printf(230, 2 + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, " OPEN");
+        it.strftime((240 / 2), 72, id(tahoma_clock), id(my_white), TextAlign::CENTER, "%H:%M", id(rtc_time).now());
           
-          it.printf(5, 2 + ys + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "light:");
-          if (id(relay3).state)
-            it.printf(230, 2 + ys + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "  ON");
-          else
-            it.printf(230, 2 + ys + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "OFF");          
-          switch(id(menu_pos))
-          {
-            case 1:
-                it.rectangle(110,  0, 40, ys, id(my_blue));
-              break;
-            case 2:
-                it.rectangle(160,  0, 40, ys, id(my_blue));
-              break;
-            case 3:/*KORM TIME*/
-                it.rectangle(80,  ys, 40, ys, id(my_blue));
-              break;
-            case 4: /*KORM ON*/
-                it.rectangle(160,  ys, 80, ys, id(my_blue));
-              break;
-            case 5: /*DOOR ON*/
-                it.rectangle(160, ys*2, 80, ys, id(my_blue));
-              break;
-            case 6: /*LIGHT ON*/
-                it.rectangle(160,  ys*3, 80, ys, id(my_blue));
-              break;
-          }
-        }
+        it.filled_rectangle(1, it.get_height() - 21, 28, 20, id(relay1).state ? id(my_red) : id(my_gray));
+        it.print(1 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "1");
 
+        it.filled_rectangle(31, it.get_height() - 21, 28, 20, id(relay2).state ? id(my_red) : id(my_gray));
+        it.print(31 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "2");
         
+        it.filled_rectangle(61, it.get_height() - 21, 28, 20, id(relay3).state ? id(my_red) : id(my_gray));
+        it.print(61 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "3");
+        
+        it.filled_rectangle(91, it.get_height() - 21, 28, 20, id(relay4).state ? id(my_red) : id(my_gray));
+        it.print(91 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "4");
+
+        it.filled_rectangle(121, it.get_height() - 21, 28, 20, id(level).state ? id(my_blue) : id(my_gray));
+        it.print(121 + 15, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "L");
+
+        if (id(doorcover).position == 1.0f)
+        {
+          it.filled_rectangle(it.get_width() - 81, it.get_height() - 21, 80, 20, id(my_green));
+          it.print(it.get_width() - 40, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "OPEN");
+        }
+        else
+        {
+          it.filled_rectangle(it.get_width() - 81, it.get_height() - 21, 80, 20, id(my_gray));
+          it.print(it.get_width() - 40, it.get_height() - 11, id(tahoma_16), id(my_black), TextAlign::CENTER, "CLOSE");
+        };
+      }else /* ВЫВОДИМ МЕНЮ*/
+      { const int ys = 34;
+        it.printf(5, 2, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "Climate:  %2d - %2d", (int)id(t_low_climate), (int)id(t_high_climate));
+        it.printf(5, 2 + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "KORM:  %2d s", (int)id(korm_time).state);
+        if (id(relay4).state)
+          it.printf(230, 2 + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "  ON");
+        else
+          it.printf(230, 2 + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "OFF");
+
+        it.printf(5, 2 + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "DOOR:");
+        if (id(doorcover).position == 1.0f)
+          it.printf(230, 2 + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "CLOSE");
+        else
+          it.printf(230, 2 + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, " OPEN");
+        
+        it.printf(5, 2 + ys + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_LEFT, "light:");
+        if (id(relay3).state)
+          it.printf(230, 2 + ys + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "  ON");
+        else
+          it.printf(230, 2 + ys + ys + ys, id(bebas_36), id(my_yellow), TextAlign::TOP_RIGHT, "OFF");          
+        switch(id(menu_pos))
+        {
+          case 1:
+              it.rectangle(110,  0, 40, ys, id(my_blue));
+            break;
+          case 2:
+              it.rectangle(160,  0, 40, ys, id(my_blue));
+            break;
+          case 3:/*KORM TIME*/
+              it.rectangle(80,  ys, 40, ys, id(my_blue));
+            break;
+          case 4: /*KORM ON*/
+              it.rectangle(160,  ys, 80, ys, id(my_blue));
+            break;
+          case 5: /*DOOR ON*/
+              it.rectangle(160, ys*2, 80, ys, id(my_blue));
+            break;
+          case 6: /*LIGHT ON*/
+              it.rectangle(160,  ys*3, 80, ys, id(my_blue));
+            break;
+        }
+      }
+
+sun:
+  latitude: 53.9168°
+  longitude: 30.3449°
+
 climate:
-  - platform: bang_bang 
+  - platform: bang_bang
     name: "Climate Controller 1"
     id: cli_1
     sensor: dht_t1
@@ -619,12 +727,12 @@ climate:
 
     heat_action:
       - switch.turn_on: relay1
-      - component.update: my_display  
+      - component.update: my_display
     idle_action:
       - switch.turn_off: relay1
-      - component.update: my_display  
+      - component.update: my_display
 
-  - platform: bang_bang 
+  - platform: bang_bang
     name: "Climate Controller 2"
     sensor: dht_t2
     id: cli_2
@@ -633,7 +741,7 @@ climate:
 
     heat_action:
       - switch.turn_on: relay2
-      - component.update: my_display  
+      - component.update: my_display
     idle_action:
       - switch.turn_off: relay2
-      - component.update: my_display  
+      - component.update: my_display
