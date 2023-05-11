@@ -9,13 +9,14 @@ esphome:
       - ds1307.read_time
 
 wifi:
-#  networks:
-#    - ssid: "wifi"
-#      password: "123123123"
+  networks:
+    - ssid: "MiMikalai"
+      password: "123123123"
 
   ap:
     ssid: "chiken"
     password: "123123123"
+    ap_timeout: 20s
 
 #captive_portal:
 
@@ -43,10 +44,6 @@ api:
 ota:
 
 globals:
-  - id: set_sntp_time
-    type: int
-    restore_value: no
-    initial_value: "-1"
   - id: menu_pos
     type: int
     restore_value: no
@@ -524,24 +521,11 @@ time:
     timezone: "Europe/Minsk"
     on_time_sync:
       then:
-        - logger.log:
-            "Synchronized system clock"
-            # ... and update the RTC when the synchronization was successful
         - if:
             condition:
-              and:
-                - wifi.connected:
-                - lambda: "return id(set_sntp_time) < 0;"
+              wifi.connected:
             then:
-              - logger.log: "Synchronized rtc"
-              - lambda: |-
-                  auto time = id(sntp_time).now();
-                  if(time.is_valid()) {
-                    id(rtc_time).write_time();
-                  }
-              - globals.set:
-                  id: set_sntp_time
-                  value: "0"
+              - ds1307.write_time:
 
   - platform: ds1307
     id: rtc_time
